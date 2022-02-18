@@ -45,3 +45,7 @@ class OrderItem(models.Model):
     quantity = models.IntegerField(
         validators=[validators.MinValueValidator(limit_value=1)]
     )
+
+    @property
+    def name(self) -> str:
+        return self.product.title
