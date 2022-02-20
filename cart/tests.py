@@ -1,3 +1,143 @@
-from django.test import TestCase
+import dataclasses
+from typing import Any
+import pytest
+from rest_framework.test import APIClient
+from rest_framework.response import Response
+from uuid import UUID
 
-# Create your tests here.
+
+def is_uuid_valid(uuid_str: str) -> bool:
+    try:
+        UUID(uuid_str)
+        return True
+    except ValueError:
+        return False
+
+
+PRODUCTS_PATH = "/products/"
+CARTS_PATH = "/cart/"
+
+
+@dataclasses.dataclass
+class ProductData:
+    name: str
+    price: str
+    sku: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "price": self.price, "sku": self.sku}
+
+
+@pytest.fixture
+def api_client() -> APIClient:
+    return APIClient()
+
+
+@pytest.fixture
+def product_data() -> ProductData:
+    return ProductData(name="Bananas", price="10.99", sku="BAN")
+
+
+def create_product(api_client: APIClient, product: ProductData) -> Response:
+    request_data = product.to_dict()
+    return api_client.post(PRODUCTS_PATH, request_data, format="json")
+
+
+def verify_product_response_body(
+    data: dict[str, Any], product: ProductData
+) -> None:
+    assert is_uuid_valid(data["id"])
+    assert data["name"] == product.name
+    assert data["price"] == product.price
+    assert data["sku"] == product.sku
+
+
+@pytest.mark.django_db
+def test_create_product(
+    api_client: APIClient, product_data: ProductData
+) -> None:
+    response = create_product(api_client, product_data)
+    assert response.status_code == 201
+    verify_product_response_body(response.data, product_data)
+
+
+@pytest.mark.django_db
+def test_retrieve_all_products(
+    api_client: APIClient, product_data: ProductData
+) -> None:
+    response = api_client.get(PRODUCTS_PATH)
+    assert response.status_code == 200
+    assert len(response.data) == 0
+
+    assert create_product(api_client, product_data).status_code == 201
+
+    response = api_client.get(PRODUCTS_PATH)
+    assert response.status_code == 200
+    assert len(response.data) == 1
+    verify_product_response_body(response.data[0], product_data)
+
+
+@pytest.mark.django_db
+def test_create_cart(api_client: APIClient) -> None:
+    response = api_client.post(CARTS_PATH, {}, format="json")
+    assert response.status_code == 201
+    assert is_uuid_valid(response.data["id"])
+    assert len(response.data["items"]) == 0
+
+
+@pytest.fixture
+def product(api_client: APIClient, product_data: ProductData) -> Any:
+    response = create_product(api_client, product_data)
+    assert response.status_code == 201
+    return response.data
+
+
+@pytest.mark.django_db
+def test_add_item_to_cart(api_client: APIClient, product: Any) -> None:
+    response = api_client.post(CARTS_PATH, {}, format="json")
+    assert response.status_code == 201
+    cart_id = response.data["id"]
+
+    response = api_client.post(
+        f"{CARTS_PATH}{cart_id}/items/",
+        {"product_id": product["id"]},
+        format="json",
+    )
+    assert response.status_code == 204
+
+    response = api_client.get(f"{CARTS_PATH}{cart_id}/")
+    assert response.status_code == 200
+    assert len(response.data["items"]) == 1
+    assert response.data["items"][0] == {
+        "price": product["price"],
+        "product_id": product["id"],
+        "quantity": 1,
+        "product_name": product["name"],
+    }
+
+
+@pytest.mark.django_db
+def test_add_product_twice_to_cart(
+    api_client: APIClient, product: Any
+) -> None:
+    response = api_client.post(CARTS_PATH, {}, format="json")
+    assert response.status_code == 201
+    cart_id = response.data["id"]
+
+    for i in range(0, 2):
+        response = api_client.post(
+            f"{CARTS_PATH}{cart_id}/items/",
+            {"product_id": product["id"]},
+            format="json",
+        )
+        assert response.status_code == 204
+
+    response = api_client.get(f"{CARTS_PATH}{cart_id}/")
+    assert response.status_code == 200
+    assert len(response.data["items"]) == 1
+    assert response.data["items"][0] == {
+        "price": product["price"],
+        "product_id": product["id"],
+        "quantity": 2,
+        "product_name": product["name"],
+    }
