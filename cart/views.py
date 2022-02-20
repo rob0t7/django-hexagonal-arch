@@ -1,16 +1,12 @@
-from rest_framework import viewsets
+from typing import Optional
 
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework import status
 
-from cart.models import Cart, CartItems
-from .serializers import (
-    CartItemSerializer,
-    CartSerializer,
-    ProductSerializer,
-    Product,
-)
+from cart.models import Cart, CartItems, Product
+from cart.serializers import CartItemSerializer, CartSerializer, ProductSerializer
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -23,13 +19,11 @@ class CartViewSet(viewsets.ModelViewSet):
     serializer_class = CartSerializer
 
     @action(url_path="items", methods=["POST"], detail=True)
-    def add_item(self, request, pk=None):
+    def add_item(self, request: Request, pk: Optional[str] = None) -> Response:
         cart = self.get_object()
         serializer = CartItemSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         product = Product.objects.get(pk=request.data["product_id"])
         try:

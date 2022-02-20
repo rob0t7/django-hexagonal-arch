@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Cart, CartItems, Product
 
 
@@ -15,9 +16,7 @@ class ProductSerializer(serializers.ModelSerializer[Product]):
 
 class CartItemSerializer(serializers.ModelSerializer[CartItems]):
     product_id = serializers.UUIDField()
-    price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
-    )
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     quantity = serializers.IntegerField(default=1)
     # name = serializers.CharField(read_only=True)
 

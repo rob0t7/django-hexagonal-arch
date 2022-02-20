@@ -1,6 +1,7 @@
 import uuid
-from django.db import models
+
 from django.core.validators import MinValueValidator
+from django.db import models
 
 
 class BaseModel(models.Model):
@@ -25,15 +26,11 @@ class Cart(BaseModel):
 
 
 class CartItems(BaseModel):
-    quantity = models.IntegerField(
-        default=1, validators=[MinValueValidator(1)]
-    )
+    quantity = models.IntegerField(default=1, validators=[MinValueValidator(1)])
     price = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(0)]
     )
-    cart = models.ForeignKey(
-        Cart, on_delete=models.CASCADE, related_name="items"
-    )
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
     @property

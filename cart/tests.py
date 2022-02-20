@@ -1,9 +1,10 @@
 import dataclasses
 from typing import Any
-import pytest
-from rest_framework.test import APIClient
-from rest_framework.response import Response
 from uuid import UUID
+
+import pytest
+from rest_framework.response import Response
+from rest_framework.test import APIClient
 
 
 def is_uuid_valid(uuid_str: str) -> bool:
@@ -43,9 +44,7 @@ def create_product(api_client: APIClient, product: ProductData) -> Response:
     return api_client.post(PRODUCTS_PATH, request_data, format="json")
 
 
-def verify_product_response_body(
-    data: dict[str, Any], product: ProductData
-) -> None:
+def verify_product_response_body(data: dict[str, Any], product: ProductData) -> None:
     assert is_uuid_valid(data["id"])
     assert data["name"] == product.name
     assert data["price"] == product.price
@@ -53,9 +52,7 @@ def verify_product_response_body(
 
 
 @pytest.mark.django_db
-def test_create_product(
-    api_client: APIClient, product_data: ProductData
-) -> None:
+def test_create_product(api_client: APIClient, product_data: ProductData) -> None:
     response = create_product(api_client, product_data)
     assert response.status_code == 201
     verify_product_response_body(response.data, product_data)
@@ -117,9 +114,7 @@ def test_add_item_to_cart(api_client: APIClient, product: Any) -> None:
 
 
 @pytest.mark.django_db
-def test_add_product_twice_to_cart(
-    api_client: APIClient, product: Any
-) -> None:
+def test_add_product_twice_to_cart(api_client: APIClient, product: Any) -> None:
     response = api_client.post(CARTS_PATH, {}, format="json")
     assert response.status_code == 201
     cart_id = response.data["id"]
