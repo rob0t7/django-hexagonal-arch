@@ -89,8 +89,19 @@ def product(api_client: APIClient, product_data: ProductData) -> Any:
     return response.data
 
 
+def verify_cart_item(
+    resp_body: dict[str, Any], product: ProductData, quantity: int = 1
+) -> None:
+    assert is_uuid_valid(resp_body["id"])
+    assert resp_body["product_name"] == product.name
+    assert resp_body["price"] == product.price
+    assert resp_body["quantity"] == quantity
+
+
 @pytest.mark.django_db
-def test_add_item_to_cart(api_client: APIClient, product: Any) -> None:
+def test_add_item_to_cart(
+    api_client: APIClient, product: Any, product_data: ProductData
+) -> None:
     response = api_client.post(CARTS_PATH, {}, format="json")
     assert response.status_code == 201
     cart_id = response.data["id"]
@@ -105,16 +116,13 @@ def test_add_item_to_cart(api_client: APIClient, product: Any) -> None:
     response = api_client.get(f"{CARTS_PATH}{cart_id}/")
     assert response.status_code == 200
     assert len(response.data["items"]) == 1
-    assert response.data["items"][0] == {
-        "price": product["price"],
-        "product_id": product["id"],
-        "quantity": 1,
-        "product_name": product["name"],
-    }
+    verify_cart_item(response.data["items"][0], product_data)
 
 
 @pytest.mark.django_db
-def test_add_product_twice_to_cart(api_client: APIClient, product: Any) -> None:
+def test_add_product_twice_to_cart(
+    api_client: APIClient, product: Any, product_data: ProductData
+) -> None:
     response = api_client.post(CARTS_PATH, {}, format="json")
     assert response.status_code == 201
     cart_id = response.data["id"]
@@ -130,9 +138,58 @@ def test_add_product_twice_to_cart(api_client: APIClient, product: Any) -> None:
     response = api_client.get(f"{CARTS_PATH}{cart_id}/")
     assert response.status_code == 200
     assert len(response.data["items"]) == 1
-    assert response.data["items"][0] == {
-        "price": product["price"],
-        "product_id": product["id"],
-        "quantity": 2,
-        "product_name": product["name"],
-    }
+    verify_cart_item(response.data["items"][0], product_data, 2)
+
+
+@pytest.mark.django_db
+def test_update_quantity_on_cart_item(
+    api_client: APIClient, product: Any, product_data: ProductData
+) -> None:
+    response = api_client.post(CARTS_PATH, {}, format="json")
+    assert response.status_code == 201
+    cart_id = response.data["id"]
+
+    response = api_client.post(
+        f"{CARTS_PATH}{cart_id}/items/",
+        {"product_id": product["id"]},
+        format="json",
+    )
+    assert response.status_code == 204
+
+    response = api_client.get(f"{CARTS_PATH}{cart_id}/")
+    assert response.status_code == 200
+    assert len(response.data["items"]) == 1
+    verify_cart_item(response.data["items"][0], product_data)
+
+    cart_item_id = response.data["items"][0]["id"]
+
+    response = api_client.patch(
+        f"{CARTS_PATH}{cart_id}/items/{cart_item_id}/",
+        {"quantity": 10},
+        format="json",
+    )
+    assert response.status_code == 204
+
+
+# @pytest.mark.django_db
+# def test_updating_quantity_from_item(api_client: APIClient, product: Any) -> None:
+#      response = api_client.post(CARTS_PATH, {}, format="json")
+#     assert response.status_code == 201
+#     cart_id = response.data["id"]
+
+#     for i in range(0, 2):
+#         response = api_client.post(
+#             f"{CARTS_PATH}{cart_id}/items/",
+#             {"product_id": product["id"]},
+#             format="json",
+#         )
+#         assert response.status_code == 204
+#     response = api_client.get(f"{CARTS_PATH}{cart_id}/")
+#     assert response.status_code == 200
+#     assert len(response.data["items"]) == 1
+#     assert response.data["items"][0] == {
+#         "price": product["price"],
+#         "product_id": product["id"],
+#         "quantity": 2,
+#         "product_name": product["name"],
+#     }
